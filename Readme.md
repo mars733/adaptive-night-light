@@ -1,92 +1,93 @@
-This is the final, universal README.md. I have updated the code section to include your linear transition logic and added the auto-detect feature so it works for Fedora, Arch, Ubuntu, and all major desktops automatically.
-------------------------------
-## 🌙 Night Light Sync (Universal Cron Edition)
-This script gives you total control over your screen temperature. Unlike standard night light settings, this uses cron to calculate a smooth, linear transition for your screen's warmth every single minute.
-## 🚀 The Problem it Solves
-Normally, background tasks (cron) cannot talk to your desktop screen, resulting in "D-Bus" or "X11 $DISPLAY" errors. This script includes a Bridge that connects the background scheduler to your active session, making automation possible on any Linux distro.
-------------------------------
+# 🌙 Night Light Sync (Universal Edition)
+
+A high-precision, linear-transition night light controller for Linux. Unlike default toggles, this script uses a mathematical bridge to calculate the perfect color temperature every single minute.
+
+## 🚀 Why this version?
+*   **The Session Bridge:** Bypasses "D-Bus" and "X11 $DISPLAY" errors that usually break background scripts.
+*   **Linear Transitions:** No abrupt jumps; your screen temperature shifts smoothly over hours.
+*   **Universal Support:** Auto-detects GNOME, Cinnamon, and MATE across Fedora, Arch, and Ubuntu.
+
 ## 📋 Prerequisites
-Before starting, ensure your system has the necessary tools:
+Ensure your system has the necessary dependencies:
 
-* Desktop Environment: GNOME, Cinnamon, or MATE.
-* Dependencies:
-* Ubuntu/Debian: sudo apt install cron dbus-x11
-   * Fedora: sudo dnf install cronie dbus-x11
-   * Arch: sudo pacman -S cronie (then run sudo systemctl enable --now cronie)
 
-------------------------------
-## 🛠️ Installation Guide## 1. Create the Script
-Open your terminal and create the file:
+| Distro | Command |
+| :--- | :--- |
+| **Ubuntu / Debian** | `sudo apt install cron dbus-x11` |
+| **Fedora** | `sudo dnf install cronie dbus-x11` |
+| **Arch Linux** | `sudo pacman -S cronie && sudo systemctl enable --now cronie` |
 
+---
+
+## 🛠️ Installation Guide
+
+### 1. Create the Script
+```bash
 nano ~/nightlight_sync.sh
+```
 
-## 2. Paste the Universal Code
-Copy and paste this entire block. It includes the Bridge, Auto-Desktop Detection, and Linear Math:
-
-
-'''
-
+### 2. Paste the Code
+```bash
 #!/bin/bash
-# --- 1. THE BRIDGE ---# Connects Cron to your active desktop session
+
+# --- 1. THE SESSION BRIDGE ---
 export DISPLAY=:0
 export XDG_RUNTIME_DIR="/run/user/$(id -u)"
 export DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR}/bus"
-# --- 2. TIME CALCULATION ---# Handles 10# base conversion to prevent errors at 08:00 and 09:00 AM
+
+# --- 2. TIME & TEMPERATURE CALCULATION ---
 H=$(date +%H)
 M=$(date +%M)
 NOW=$(( 10#$H * 60 + 10#$M ))
-# Logic for linear transitions (scale 0 to 1000)if [ "$NOW" -ge 0 ] && [ "$NOW" -lt 360 ]; then
-    scale=1000elif [ "$NOW" -ge 360 ] && [ "$NOW" -lt 480 ]; then
-    scale=$(( 1000 - ($NOW - 360) * 500 / 120 ))elif [ "$NOW" -ge 480 ] && [ "$NOW" -lt 720 ]; then
-    scale=$(( 500 - ($NOW - 480) * 500 / 240 ))elif [ "$NOW" -ge 720 ] && [ "$NOW" -lt 1080 ]; then
-    scale=$(( ($NOW - 720) * 500 / 360 ))else
-    scale=$(( 500 + ($NOW - 1080) * 500 / 360 ))fi
-# Calculate Kelvin: 6500K (Day) down to 1000K (Night)
+
+# Linear transition logic (Scale 0 to 1000)
+if [ "$NOW" -ge 0 ] && [ "$NOW" -lt 360 ]; then
+    scale=1000
+elif [ "$NOW" -ge 360 ] && [ "$NOW" -lt 480 ]; then
+    scale=$(( 1000 - ($NOW - 360) * 500 / 120 ))
+elif [ "$NOW" -ge 480 ] && [ "$NOW" -lt 720 ]; then
+    scale=$(( 500 - ($NOW - 480) * 500 / 240 ))
+elif [ "$NOW" -ge 720 ] && [ "$NOW" -lt 1080 ]; then
+    scale=$(( ($NOW - 720) * 500 / 360 ))
+else
+    scale=$(( 500 + ($NOW - 1080) * 500 / 360 ))
+fi
+
 REDUCTION=$(( scale * 5500 / 1000 ))
 TEMP=$(( 6500 - REDUCTION ))
-# --- 3. AUTO-DESKTOP DETECTION ---if [[ "$XDG_CURRENT_DESKTOP" == *"Cinnamon"* ]]; then
-    SCHEMA="org.cinnamon.settings-daemon.plugins.color"else
-    SCHEMA="org.gnome.settings-daemon.plugins.color"fi
-# Apply settings
+
+# --- 3. AUTO-DESKTOP DETECTION ---
+if [[ "$XDG_CURRENT_DESKTOP" == *"Cinnamon"* ]]; then
+    SCHEMA="org.cinnamon.settings-daemon.plugins.color"
+else
+    SCHEMA="org.gnome.settings-daemon.plugins.color"
+fi
+
 gsettings set $SCHEMA night-light-enabled true
 gsettings set $SCHEMA night-light-temperature $TEMP
+```
 
-
-'''
-
-
-
-
-
-## 3. Make it Executable
-
+### 3. Permissions & Automation
+```bash
 chmod +x ~/nightlight_sync.sh
-
-## 4. Schedule the Automation
-Open your crontab:
-
 crontab -e
+```
+Add this to the bottom (Replace `USER` with your username):
+`*/1 * * * * /bin/bash /home/USER/nightlight_sync.sh`
 
-Add this line at the very bottom:
+---
 
-*/1 * * * * /bin/bash /home/$USER/nightlight_sync.sh
+## ⚙️ How to Customize Times
+The script uses "minutes from midnight" for transitions. You can change these numbers in the `if/elif` section:
+*   **360**: 6:00 AM
+*   **480**: 8:00 AM
+*   **720**: 12:00 PM
+*   **1080**: 6:00 PM
 
-------------------------------
-## 🔍 How to Verify
-Wait one minute, then check your system logs:
+To change a trigger, simply multiply the **Hour × 60**. For example, 10:00 PM would be **1320**.
 
-* Ubuntu/Debian: systemctl status cron
-* Fedora/Arch: systemctl status crond
+---
 
-If you see CMD (~/nightlight_sync.sh) with no errors, it’s working!
-------------------------------
-## 🗑️ How to Uninstall
-
-   1. Run crontab -e and delete the line you added.
-   2. Remove the script: rm ~/nightlight_sync.sh.
-
-------------------------------
-Created to make Linux desktop automation simple and reliable for everyone.
-Do you want to add a "Customize Your Times" section so users know how to change the 6 AM or 8 AM triggers?
-
-
+## 🔍 Verification & Uninstallation
+*   **Check Status:** `systemctl status cron` (or `crond`)
+*   **Uninstall:** Remove the line from `crontab -e` and delete the file.
